@@ -2,8 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition';
 
 const navItems = [
-  { path: '/', label: 'Home', icon: HomeIcon },
-  { path: '/search', label: 'Search', icon: SearchIcon },
+  { path: '/', label: 'Dictionary', icon: SearchIcon },
   { path: '/vocabulary', label: 'Words', icon: BookIcon },
   { path: '/review', label: 'Review', icon: CardsIcon }
 ];
@@ -17,14 +16,14 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 safe-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 safe-bottom z-20">
         <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
           {navItems.map(({ path, label, icon: Icon }) => (
             <NavLink
               key={path}
               to={path}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center w-16 h-full transition-colors ${
+                `flex flex-col items-center justify-center w-20 h-full transition-colors ${
                   isActive ? 'text-primary-400' : 'text-slate-400 hover:text-slate-200'
                 }`
               }
@@ -43,14 +42,6 @@ export function Layout() {
         </div>
       </nav>
     </div>
-  );
-}
-
-function HomeIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-    </svg>
   );
 }
 

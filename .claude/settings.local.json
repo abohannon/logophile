@@ -10,7 +10,15 @@
       "Bash(npx playwright test:*)",
       "Bash(pkill:*)",
       "Bash(cat:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(wc:*)",
+      "WebFetch(domain:en-word.net)",
+      "WebFetch(domain:kaikki.org)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm run build:dict:*)",
+      "Bash(node:*)"
     ]
   }
 }

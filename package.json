@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:dict": "node scripts/build-dictionary.js"
   },
   "dependencies": {
     "@react-spring/web": "^9.7.5",

@@ -16,24 +16,17 @@ export interface SavedWord {
   createdAt: Date;
 }
 
-export interface DictionaryEntry {
-  id?: number;
-  term: string;
-  definitions: {
-    partOfSpeech: string;
-    definition: string;
-    examples: string[];
-    synonyms: string[];
-  }[];
-  pronunciation?: string;
-  audioUrl?: string;
-}
-
 const db = new Dexie('LogophileDB') as Dexie & {
   savedWords: EntityTable<SavedWord, 'id'>;
-  dictionary: EntityTable<DictionaryEntry, 'id'>;
 };
 
+// Version 2: Removed dictionary table (dictionary is now loaded from static JSON)
+db.version(2).stores({
+  savedWords: '++id, term, dueDate, createdAt',
+  dictionary: null // Delete the dictionary table
+});
+
+// Keep version 1 for migration
 db.version(1).stores({
   savedWords: '++id, term, dueDate, createdAt',
   dictionary: '++id, term'

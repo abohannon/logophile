@@ -1,6 +1,21 @@
-import { db, type DictionaryEntry } from '../db';
+/**
+ * Dictionary module
+ *
+ * Loads dictionary data from static JSON file and searches in memory.
+ * Does NOT use IndexedDB - that's reserved for user's saved vocabulary.
+ */
 
-export type { DictionaryEntry };
+export interface DictionaryEntry {
+  term: string;
+  definitions: {
+    partOfSpeech: string;
+    definition: string;
+    examples: string[];
+    synonyms: string[];
+  }[];
+  pronunciation?: string;
+  audioUrl?: string;
+}
 
 export interface WordDefinition {
   term: string;
@@ -12,6 +27,9 @@ export interface WordDefinition {
   audioUrl?: string;
 }
 
+// In-memory dictionary storage
+let dictionary: Map<string, DictionaryEntry> = new Map();
+let sortedTerms: string[] = [];
 let dictionaryLoaded = false;
 let loadingPromise: Promise<void> | null = null;
 
@@ -20,65 +38,53 @@ export async function loadDictionary(): Promise<void> {
   if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
-    const count = await db.dictionary.count();
-    if (count > 0) {
-      dictionaryLoaded = true;
-      return;
-    }
-
     try {
-      const response = await fetch('/data/wordnet.json');
+      console.log('Loading dictionary...');
+      const response = await fetch('/data/dictionary.json');
+
       if (!response.ok) {
-        console.warn('WordNet data not found, using sample data');
-        await loadSampleDictionary();
-        dictionaryLoaded = true;
+        console.warn('Dictionary not found, using sample data');
+        loadSampleDictionary();
         return;
       }
 
-      const data = await response.json();
-      const entries: DictionaryEntry[] = [];
+      const data = await response.json() as Record<string, {
+        definitions?: { pos: string; def: string; examples?: string[]; synonyms?: string[] }[];
+        pronunciation?: string;
+        audio?: string;
+      }>;
 
-      for (const [term, info] of Object.entries(data as Record<string, unknown>)) {
-        const wordInfo = info as {
-          definitions?: { pos: string; def: string; examples?: string[]; synonyms?: string[] }[];
-          pronunciation?: string;
-          audio?: string;
-        };
-
-        entries.push({
+      // Convert to Map for fast lookups
+      for (const [term, info] of Object.entries(data)) {
+        const entry: DictionaryEntry = {
           term: term.toLowerCase(),
-          definitions: (wordInfo.definitions || []).map(d => ({
+          definitions: (info.definitions || []).map(d => ({
             partOfSpeech: d.pos || 'unknown',
             definition: d.def || '',
             examples: d.examples || [],
             synonyms: d.synonyms || []
           })),
-          pronunciation: wordInfo.pronunciation,
-          audioUrl: wordInfo.audio
-        });
+          pronunciation: info.pronunciation,
+          audioUrl: info.audio
+        };
+        dictionary.set(entry.term, entry);
       }
 
-      // If no entries from wordnet.json, load sample data
-      if (entries.length === 0) {
-        console.warn('WordNet data is empty, using sample data');
-        await loadSampleDictionary();
-        dictionaryLoaded = true;
-        return;
-      }
+      // Pre-sort terms for efficient prefix search
+      sortedTerms = Array.from(dictionary.keys()).sort();
 
-      await db.dictionary.bulkAdd(entries);
+      console.log(`Dictionary loaded: ${dictionary.size} words`);
       dictionaryLoaded = true;
     } catch (error) {
       console.error('Failed to load dictionary:', error);
-      await loadSampleDictionary();
-      dictionaryLoaded = true;
+      loadSampleDictionary();
     }
   })();
 
   return loadingPromise;
 }
 
-async function loadSampleDictionary(): Promise<void> {
+function loadSampleDictionary(): void {
   const sampleWords: DictionaryEntry[] = [
     {
       term: 'logophile',
@@ -131,78 +137,23 @@ async function loadSampleDictionary(): Promise<void> {
       pronunciation: '/yo͞oˈbikwədəs/'
     },
     {
-      term: 'mellifluous',
+      term: 'beautiful',
       definitions: [{
         partOfSpeech: 'adjective',
-        definition: 'Sweet-sounding; pleasant to hear',
-        examples: ['Her mellifluous voice was perfect for narrating audiobooks.'],
-        synonyms: ['sweet-sounding', 'dulcet', 'honeyed', 'melodious']
+        definition: 'Pleasing the senses or mind aesthetically',
+        examples: ['What a beautiful sunset!'],
+        synonyms: ['attractive', 'pretty', 'handsome', 'lovely']
       }],
-      pronunciation: '/məˈliflo͞oəs/'
-    },
-    {
-      term: 'perspicacious',
-      definitions: [{
-        partOfSpeech: 'adjective',
-        definition: 'Having a ready insight into and understanding of things',
-        examples: ['The perspicacious detective noticed the crucial clue everyone else missed.'],
-        synonyms: ['astute', 'shrewd', 'perceptive', 'discerning']
-      }],
-      pronunciation: '/ˌpərspəˈkāSHəs/'
-    },
-    {
-      term: 'ineffable',
-      definitions: [{
-        partOfSpeech: 'adjective',
-        definition: 'Too great or extreme to be expressed or described in words',
-        examples: ['She felt an ineffable joy when she held her newborn baby.'],
-        synonyms: ['indescribable', 'inexpressible', 'unspeakable', 'unutterable']
-      }],
-      pronunciation: '/inˈefəb(ə)l/'
-    },
-    {
-      term: 'sanguine',
-      definitions: [{
-        partOfSpeech: 'adjective',
-        definition: 'Optimistic or positive, especially in a difficult situation',
-        examples: ['Despite the setback, she remained sanguine about the project\'s success.'],
-        synonyms: ['optimistic', 'hopeful', 'confident', 'positive']
-      }],
-      pronunciation: '/ˈsaNGɡwən/'
-    },
-    {
-      term: 'quixotic',
-      definitions: [{
-        partOfSpeech: 'adjective',
-        definition: 'Exceedingly idealistic; unrealistic and impractical',
-        examples: ['His quixotic quest to eliminate all poverty seemed noble but impossible.'],
-        synonyms: ['idealistic', 'romantic', 'visionary', 'impractical']
-      }],
-      pronunciation: '/kwikˈsädik/'
-    },
-    {
-      term: 'laconic',
-      definitions: [{
-        partOfSpeech: 'adjective',
-        definition: 'Using very few words; brief and concise',
-        examples: ['His laconic reply of "No" ended the conversation abruptly.'],
-        synonyms: ['brief', 'concise', 'terse', 'succinct']
-      }],
-      pronunciation: '/ləˈkänik/'
-    },
-    {
-      term: 'esoteric',
-      definitions: [{
-        partOfSpeech: 'adjective',
-        definition: 'Intended for or understood by only a small number of people with specialized knowledge',
-        examples: ['The professor\'s esoteric lecture on quantum mechanics confused most of the audience.'],
-        synonyms: ['obscure', 'arcane', 'abstruse', 'recondite']
-      }],
-      pronunciation: '/ˌesəˈterik/'
+      pronunciation: '/ˈbjuːtɪf(ə)l/'
     }
   ];
 
-  await db.dictionary.bulkAdd(sampleWords);
+  for (const word of sampleWords) {
+    dictionary.set(word.term, word);
+  }
+  sortedTerms = Array.from(dictionary.keys()).sort();
+  dictionaryLoaded = true;
+  console.log(`Sample dictionary loaded: ${dictionary.size} words`);
 }
 
 export async function searchWords(query: string, limit = 20): Promise<DictionaryEntry[]> {
@@ -211,28 +162,51 @@ export async function searchWords(query: string, limit = 20): Promise<Dictionary
   await loadDictionary();
 
   const normalizedQuery = query.toLowerCase().trim();
+  const results: DictionaryEntry[] = [];
 
-  const exactMatch = await db.dictionary
-    .where('term')
-    .equals(normalizedQuery)
-    .first();
+  // Exact match first
+  const exactMatch = dictionary.get(normalizedQuery);
+  if (exactMatch) {
+    results.push(exactMatch);
+  }
 
-  const prefixMatches = await db.dictionary
-    .where('term')
-    .startsWith(normalizedQuery)
-    .limit(limit)
-    .toArray();
+  // Prefix matches using binary search on sorted terms
+  const startIndex = binarySearchPrefix(sortedTerms, normalizedQuery);
 
-  const results = exactMatch
-    ? [exactMatch, ...prefixMatches.filter(w => w.term !== exactMatch.term)]
-    : prefixMatches;
+  for (let i = startIndex; i < sortedTerms.length && results.length < limit; i++) {
+    const term = sortedTerms[i];
+    if (!term.startsWith(normalizedQuery)) break;
+
+    // Skip exact match (already added)
+    if (term === normalizedQuery) continue;
+
+    const entry = dictionary.get(term);
+    if (entry) results.push(entry);
+  }
 
   return results.slice(0, limit);
 }
 
+// Binary search to find first term with given prefix
+function binarySearchPrefix(arr: string[], prefix: string): number {
+  let low = 0;
+  let high = arr.length;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (arr[mid] < prefix) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
+}
+
 export async function getWord(term: string): Promise<DictionaryEntry | undefined> {
   await loadDictionary();
-  return db.dictionary.where('term').equals(term.toLowerCase()).first();
+  return dictionary.get(term.toLowerCase());
 }
 
 export function flattenDefinitions(entry: DictionaryEntry): WordDefinition[] {
